@@ -42,22 +42,76 @@ def fetch_player_ids(league_ids):
 
     return managers
 
+def fetch_manager_history_and_picks(managers, gameweek):
+    for manager in managers[:1]:
+        manager_id = manager['manager_id']
+
+        url = f'https://fantasy.premierleague.com/api/entry/{manager_id}/history/'
+        response = requests.get(url)
+        data = response.json()
+        
+        gameweeks = data['current']
+        gameweek_history = []
+
+        for gw in gameweeks:
+            gameweek = gw['event']
+            points = gw['points']
+
+            gameweek_data = {
+                "gameweek": gameweek,
+                "points": points
+            }
+
+            gameweek_history.append(gameweek_data)
+
+        manager['gameweek_history'] = gameweek_history
+
+        sleep_time = random.randint(1, 3)
+        time.sleep(sleep_time)
+
+        url = f'https://fantasy.premierleague.com/api/entry/{manager_id}/event/{gameweek}/picks/'
+        response = requests.get(url)
+        data = response.json()
+
+        players = data['picks']
+        players_data = []
+
+        for player in players:
+            player_id = player['element']
+            position = player['position']
+            multiplier = player['multiplier']
+
+            player_data = {
+                "player_id": player_id,
+                "position": position,
+                "multiplier": multiplier
+            }
+
+            players_data.append(player_data)
+
+        manager['player_picks'] = players_data
+
+        print(manager)
+
 def main():
     with open('../data/options.json') as f:
         options = json.load(f)
 
-    fetch_data = options.get("fetch_data")
-    print(fetch_data)
+    fetch_data = options.get("fetch_data", True)
+    if fetch_data == True:
+        league_ids = options.get("league_ids")
+        managers = fetch_player_ids(league_ids)
 
-    league_ids = options.get("league_ids")
+        with open('../data/managers.json', 'w') as f:
+            json.dump(managers, f, indent=4)
 
-    managers = fetch_player_ids(league_ids)
-    with open('../data/managers.json', 'w') as f:
-        json.dump(managers, f, indent=4)
-        print("Created managers json file")
+    with open('../data/managers.json') as f:
+        managers = json.load(f)
 
-    for manager in managers:
-        print(manager)
+    gameweek = options.get("gameweek")
+
+    # This should be done in the other loop when done
+    managers = fetch_manager_history_and_picks(managers, gameweek)
     
 if __name__ == "__main__":
     main()
